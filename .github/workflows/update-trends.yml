@@ -19,7 +19,7 @@ jobs:
       - name: Fetch Wikimedia trend data
         shell: bash
         run: |
-          node <<'NODE'
+         node --input-type=commonjs <<'NODE'
           const {mkdir,writeFile}=require('node:fs/promises');
           const games=[['Roblox','Roblox'],['Minecraft','Minecraft'],['PK XD','PK_XD'],['Fortnite Creative','Fortnite_Creative'],['Stumble Guys','Stumble_Guys'],['Rec Room','Rec_Room_(video_game)']];
           const day=86400000,end=new Date(Date.now()-day),start=new Date(end.getTime()-13*day);
