@@ -1,0 +1,38 @@
+name: Update game trends
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Fetch Wikimedia trend data
+        shell: bash
+        run: |
+          node <<'NODE'
+          const {mkdir,writeFile}=require('node:fs/promises');
+          const games=[['Roblox','Roblox'],['Minecraft','Minecraft'],['PK XD','PK_XD'],['Fortnite Creative','Fortnite_Creative'],['Stumble Guys','Stumble_Guys'],['Rec Room','Rec_Room_(video_game)']];
+          const day=86400000,end=new Date(Date.now()-day),start=new Date(end.getTime()-13*day);
+          const stamp=d=>d.toISOString().slice(0,10).replaceAll('-','')+'00';
+          async function get(name,article){const url=`https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/user/${encodeURIComponent(article)}/daily/${stamp(start)}/${stamp(end)}`;const r=await fetch(url,{headers:{'User-Agent':'GameTrendRadar/1.0'}});if(!r.ok)return{name,views:0,growth:0};const j=await r.json(),v=(j.items||[]).map(x=>x.views||0),a=v.slice(0,7).reduce((x,y)=>x+y,0),b=v.slice(-7).reduce((x,y)=>x+y,0);return{name,views:b,growth:a?Math.round((b-a)/a*100):0}}
+          const raw=await Promise.all(games.map(x=>get(...x))),max=Math.max(...raw.map(x=>x.views),1);
+          const output=raw.map(x=>({...x,views7d:x.views,score:Math.max(35,Math.round(55+x.views/max*165))})).map(({views,...x})=>x).sort((a,b)=>b.score-a.score);
+          await mkdir('data',{recursive:true});await writeFile('data/trends.json',JSON.stringify({updatedAt:new Date().toISOString(),source:'Wikimedia Pageviews',games:output},null,2));
+          NODE
+      - name: Save refreshed data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/trends.json
+          git diff --cached --quiet || git commit -m "Update game trend data"
+          git push
